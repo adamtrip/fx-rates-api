@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FxRates.Api/FxRates.Api.csproj" />
+    <Project Path="src/FxRates.Application/FxRates.Application.csproj" />
+    <Project Path="src/FxRates.Infrastructure/FxRates.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FxRates.IntegrationTests/FxRates.IntegrationTests.csproj" />
+    <Project Path="tests/FxRates.UnitTests/FxRates.UnitTests.csproj" />
+  </Folder>
+</Solution>

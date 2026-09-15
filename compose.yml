@@ -1,0 +1,88 @@
+name: fx-rates-api
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fxrates
+      POSTGRES_USER: fxrates
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      # The postgres:18 image moved its data directory. Mount the parent, not /var/lib/postgresql/data,
+      # or the database is recreated empty on every container replacement.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fxrates -d fxrates"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    logging: *logging
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    # RabbitMQ names its node and data directory after the hostname, so recreated containers must keep it.
+    hostname: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: fxrates
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    ports:
+      # Management UI only, on localhost. AMQP stays private to the Compose network.
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  migrate:
+    image: fx-rates-api-migrations:local
+    build:
+      context: .
+      target: migrator
+    environment:
+      ConnectionStrings__Rates: Host=postgres;Database=fxrates;Username=fxrates;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    logging: *logging
+
+  api:
+    image: fx-rates-api:local
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Rates: Host=postgres;Database=fxrates;Username=fxrates;Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      ExchangeProvider__Mode: ${EXCHANGE_PROVIDER_MODE:-AlphaVantage}
+      ExchangeProvider__ApiKey: ${ALPHA_VANTAGE_API_KEY:-}
+      ExchangeProvider__TimeoutSeconds: ${PROVIDER_TIMEOUT_SECONDS:-10}
+      Messaging__Mode: ${MESSAGING_MODE:-RabbitMq}
+      Messaging__Host: rabbitmq
+      Messaging__UserName: fxrates
+      Messaging__Password: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      RateLimiting__PermitLimit: ${RATE_LIMIT_PER_MINUTE:-60}
+      RateLimiting__WindowSeconds: 60
+    ports:
+      - "127.0.0.1:${API_PORT:-5080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *logging
+
+volumes:
+  postgres-data:
+  rabbitmq-data:

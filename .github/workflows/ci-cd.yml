@@ -1,0 +1,100 @@
+name: Build, test, and deploy
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+# Serialize main rollouts; PR checks may be superseded by newer commits.
+concurrency:
+  group: fx-rates-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  # GHCR requires a lower-case path. github.repository is already lower-case for this project.
+  IMAGE_REPOSITORY: ghcr.io/${{ github.repository }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore FxRates.slnx
+      - run: dotnet format FxRates.slnx --no-restore --verify-no-changes
+      - run: dotnet build FxRates.slnx --no-restore --configuration Release
+      - run: dotnet test FxRates.slnx --no-build --configuration Release --logger trx
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          retention-days: 7
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: migrator
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.IMAGE_REPOSITORY }}-migrations:${{ github.sha }}
+          labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=api
+  # Real deployment needs the self-hosted runner described in docs/deployment.md. Until the
+  # repository variable FX_DEPLOY_ENABLED is "true", the placeholder job below runs instead so a
+  # main push still completes the pipeline end to end.
+  deploy:
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.FX_DEPLOY_ENABLED == 'true'
+    runs-on: [self-hosted, fx-rates-prod]
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy tested commit
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+          FX_DEPLOY_DIR: ${{ vars.FX_DEPLOY_DIR }}
+        run: bash deploy/deploy.sh "$DEPLOY_SHA"
+  deploy-placeholder:
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.FX_DEPLOY_ENABLED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Describe the deployment that would run
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          echo "Placeholder deployment. Set repository variable FX_DEPLOY_ENABLED=true after registering the runner."
+          echo "Would run: bash deploy/deploy.sh $DEPLOY_SHA"
+          echo "Images: $IMAGE_REPOSITORY:$DEPLOY_SHA and $IMAGE_REPOSITORY-migrations:$DEPLOY_SHA"

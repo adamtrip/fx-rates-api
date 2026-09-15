@@ -1,0 +1,73 @@
+@baseUrl = http://localhost:5080
+
+### List only records already in PostgreSQL
+GET {{baseUrl}}/api/rates
+Accept: application/json
+
+### Fetch USD/EUR if missing; repeat to read the stored quote
+GET {{baseUrl}}/api/rates/USD/EUR
+Accept: application/json
+
+### Create a manual rate, expected 201 or 409 if already stored
+POST {{baseUrl}}/api/rates
+Content-Type: application/json
+
+{
+  "baseCurrency": "GBP",
+  "quoteCurrency": "CHF",
+  "bid": 1.12,
+  "ask": 1.13
+}
+
+### Replace prices and set source to Manual, expected 200 after creation
+PUT {{baseUrl}}/api/rates/GBP/CHF
+Content-Type: application/json
+
+{
+  "bid": 1.14,
+  "ask": 1.15
+}
+
+### Codes normalize to uppercase
+GET {{baseUrl}}/api/rates/gbp/chf
+
+### Delete the stored record, expected 204 or 404 if absent
+DELETE {{baseUrl}}/api/rates/GBP/CHF
+
+### Recreate a deleted pair through the selected provider
+GET {{baseUrl}}/api/rates/GBP/CHF
+
+### Invalid spread, expected 400
+PUT {{baseUrl}}/api/rates/GBP/CHF
+Content-Type: application/json
+
+{
+  "bid": 1.2,
+  "ask": 1.1
+}
+
+### Unsupported precision, expected 400
+POST {{baseUrl}}/api/rates
+Content-Type: application/json
+
+{
+  "baseCurrency": "AUD",
+  "quoteCurrency": "NZD",
+  "bid": 1.123456789,
+  "ask": 1.13
+}
+
+### Same-currency pair, expected 400
+GET {{baseUrl}}/api/rates/USD/USD
+
+### Unsupported currency, expected 400
+GET {{baseUrl}}/api/rates/BTC/EUR
+
+### Liveness
+GET {{baseUrl}}/health/live
+
+### Database readiness
+GET {{baseUrl}}/health/ready
+
+### OpenAPI schema
+GET {{baseUrl}}/openapi/v1.json

@@ -1,0 +1,5 @@
+services:
+  api:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/adamtrip/fx-rates-api}:${IMAGE_TAG:?Set IMAGE_TAG to the tested commit SHA}
+  migrate:
+    image: ${IMAGE_REPOSITORY:-ghcr.io/adamtrip/fx-rates-api}-migrations:${IMAGE_TAG:?Set IMAGE_TAG to the tested commit SHA}
