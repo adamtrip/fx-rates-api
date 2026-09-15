@@ -7,20 +7,20 @@ FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG TARGETARCH
 WORKDIR /src
 # Restore from project and package files only, so editing source does not invalidate the package layer.
+# The packages stay in this layer rather than a cache mount: CI restores layers from the GitHub cache
+# on a fresh runner, and a cache mount would not come with them, leaving the later --no-restore steps
+# without packages.
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY .config/dotnet-tools.json .config/
 COPY src/FxRates.Api/FxRates.Api.csproj src/FxRates.Api/
 COPY src/FxRates.Application/FxRates.Application.csproj src/FxRates.Application/
 COPY src/FxRates.Infrastructure/FxRates.Infrastructure.csproj src/FxRates.Infrastructure/
-RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
-    dotnet restore src/FxRates.Api/FxRates.Api.csproj && dotnet tool restore
+RUN dotnet restore src/FxRates.Api/FxRates.Api.csproj && dotnet tool restore
 COPY src/ src/
-RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
-    dotnet publish src/FxRates.Api/FxRates.Api.csproj -c Release --no-restore -o /out/api /p:UseAppHost=false
+RUN dotnet publish src/FxRates.Api/FxRates.Api.csproj -c Release --no-restore -o /out/api /p:UseAppHost=false
 # The bundle is a self-contained executable that applies pending migrations. It finds
 # RatesDbContextFactory at run time, so it needs only ConnectionStrings__Rates.
-RUN --mount=type=cache,target=/root/.nuget/packages,sharing=locked \
-    RID="linux-x64"; if [ "$TARGETARCH" = "arm64" ]; then RID="linux-arm64"; fi; \
+RUN RID="linux-x64"; if [ "$TARGETARCH" = "arm64" ]; then RID="linux-arm64"; fi; \
     dotnet ef migrations bundle --project src/FxRates.Infrastructure --startup-project src/FxRates.Api \
     --configuration Release --target-runtime "$RID" --output /out/efbundle
 
