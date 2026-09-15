@@ -35,14 +35,20 @@ Run with `ASPNETCORE_ENVIRONMENT=Development` against a throwaway PostgreSQL:
 - `POST /api/rates` with bid `0.91` returned `"bid":0.91`, and the following `GET` returned the same text rather than `0.91000000`.
 - 61 requests to `/api/rates` inside one minute produced 55 `200` responses and 6 `429` responses with `Retry-After: 60` and a Problem Details body.
 
-An earlier run on 2026-09-11 fetched a live Alpha Vantage quote for USD/EUR through the real provider and stored it. That check has not been repeated since; it consumes provider quota.
+An earlier run on 2026-09-11 fetched a live Alpha Vantage quote for USD/EUR through the real provider and stored it.
+
+## GitHub and deployment
+
+Performed on 2026-09-15 after publishing the repository:
+
+- The first push to `main` ran the workflow on GitHub: restore, format check, build, and both test suites passed on a hosted runner, both images were published to GHCR for `linux/amd64` and `linux/arm64`, and the placeholder deployment job ran because `FX_DEPLOY_ENABLED` was not yet set.
+- The published images pull anonymously from GHCR.
+- With the self-hosted runner registered and `FX_DEPLOY_ENABLED=true`, the next push ran the real deployment job: images pulled, PostgreSQL and RabbitMQ healthy, the initial migration applied, the API healthy, and the script's readiness check passed.
+- Through the Cloudflare tunnel, `/health/live`, `/health/ready`, `/openapi/v1.json`, and `/docs/` returned 200.
+- `GET /api/rates/USD/EUR` on the empty database fetched a live quote from Alpha Vantage and stored it with source `AlphaVantage`. The repeated request returned the identical stored row. `GET /api/rates/USD/USD` returned a 400 Problem Details body with a trace ID.
 
 ## Remaining checks
 
-- No Git repository has been initialized and no remote repository has been created. The `.gitignore` has not been exercised by a real commit.
-- GitHub Actions has been linted locally but has not run on GitHub. The placeholder deployment job has not executed.
-- The multi-platform publish has been exercised only in one direction, arm64 host building amd64 images. The amd64 hosted runner building arm64 images uses the same cross-compilation path but has not run.
-- Public hosting, runner registration, GHCR publication, and tunnel routing have not been performed.
 - Broker container recreation with a stable hostname is configured but was not exercised by deleting and recreating the container.
 - Event delivery has no outbox. A broker outage during a create loses that event by design; see the backlog story FX-10.
 - No performance benchmark or load target was defined or measured.

@@ -1,6 +1,6 @@
 # Backlog
 
-In short: ten delivered stories, 35 points and 41 hours, cover the brief. Two setup tasks wait on the repository being created. Six production-readiness stories, 20 points and 39 hours, are scoped and ordered but not started.
+In short: ten delivered stories, 35 points and 41 hours, cover the brief, including repository publication and deployment. Six production-readiness stories, 20 points and 39 hours, are scoped and ordered but not started.
 
 Hours estimate implementation and focused verification. P0 is required for the brief, P1 is supporting work, and P2 is production readiness.
 
@@ -20,7 +20,7 @@ Hours estimate implementation and focused verification. P0 is required for the b
 | FX-09 Deliver creation events through RabbitMQ | P1 | 3 | 3 | FX-08 |
 | **Total** | | **35** | **41** | |
 
-Two tasks in these stories are not done yet: creating the repository in FX-00 and registering the deployment host in FX-06. They are listed under [pending setup](#pending-setup) so the delivered total is not read as finished work.
+The repository and the deployment host were the last two tasks to finish; both were completed on 2026-09-15 and are listed under [setup completed last](#setup-completed-last).
 
 ### FX-00: Set up the solution and tooling
 
@@ -213,9 +213,9 @@ Acceptance criteria:
 | Configure and containerize | Messaging options with validation; RabbitMQ in Compose with a health check | 0.5 |
 | Verify and document | Broker-backed test; unreachable-broker test; README event contract | 1 |
 
-## Pending setup
+## Setup completed last
 
-These two tasks belong to delivered stories but need the repository and a host, so they wait until the code is ready to publish.
+These two tasks belong to delivered stories but needed the repository and a host, so they ran after the code was ready to publish.
 
 | Task | Story | Subtasks | Hours | Depends on |
 |---|---|---|---:|---|

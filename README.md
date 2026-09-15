@@ -201,7 +201,7 @@ Publishing happens after the commit, with no outbox. If the broker is down, the 
 - Logs go to stdout as JSON outside the `Development` environment. Every `5xx` response logs the exception with the same `traceId` the caller received, at Error for unexpected failures and at Warning for expected provider failures. Provider credentials never appear in logs because HTTP client request logging is disabled.
 - [Deployment instructions](docs/deployment.md) describe GHCR, the self-hosted runner, Compose, and Cloudflare Tunnel.
 
-The repository is `adamtrip/fx-rates-api` on GitHub. The public URL is `https://fin-demo.adamtrip.pt` once the deployment in [the deployment doc](docs/deployment.md) is complete.
+The repository is [adamtrip/fx-rates-api](https://github.com/adamtrip/fx-rates-api) on GitHub. The API runs at [fin-demo.adamtrip.pt](https://fin-demo.adamtrip.pt/docs), deployed by the pipeline in [the deployment doc](docs/deployment.md).
 
 Read [design and self-review](docs/design.md) for tradeoffs and limitations, [the backlog](docs/backlog.md) for stories, acceptance criteria, priorities, and estimates, and [verification results](docs/verification.md) for checks performed on the local build.
 
