@@ -318,6 +318,20 @@ public sealed class RatesApiTests(ApiFixture api) : IClassFixture<ApiFixture>, I
         Assert.False(string.IsNullOrWhiteSpace(bidDescription));
     }
 
+    [Fact]
+    public async Task Openapi_server_url_uses_the_forwarded_scheme()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/openapi/v1.json");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+
+        using var response = await api.Client.SendAsync(request);
+
+        response.EnsureSuccessStatusCode();
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var server = document.RootElement.GetProperty("servers")[0].GetProperty("url").GetString();
+        Assert.StartsWith("https://", server);
+    }
+
     private async Task<RateResponse[]> ListRates() => (await api.Client.GetFromJsonAsync<RateResponse[]>("/api/rates"))!;
 
     private static decimal Price(string text) => decimal.Parse(text, System.Globalization.CultureInfo.InvariantCulture);

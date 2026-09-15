@@ -46,6 +46,8 @@ Expected failures are `FxException` values with an `ErrorKind`. The API's except
 
 HTTP client request logging is removed for the Alpha Vantage client because the provider puts the API key in the query string. Provider failures are still logged, without the URL.
 
+The deployment terminates TLS at the Cloudflare tunnel and forwards plain HTTP, so the API honours `X-Forwarded-Proto`. Without it the generated OpenAPI document advertised an `http` server URL and the interactive documentation produced `http` examples. The header is accepted from any peer because the API is reachable only from the Compose network and the host's loopback; a deployment with a public listener would restrict it to known proxies.
+
 ## Testing approach
 
 Unit tests exercise pair and price rules, the parser, application decisions, and provider parsing through controlled dependencies. A provider request test checks the Alpha Vantage request URI. Integration tests send HTTP requests to the API and use a real disposable PostgreSQL container. A rate-limiter integration test checks that requests exceeding the allowance return `429`. A separate integration test publishes through the RabbitMQ adapter to a disposable broker and consumes the message back. This checks status codes, persistence, migrations, serialization, and broker delivery without depending on external services.

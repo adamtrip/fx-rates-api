@@ -4,6 +4,7 @@ using FxRates.Api.RateLimiting;
 using FxRates.Infrastructure;
 using FxRates.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
 
@@ -22,6 +23,15 @@ else
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiRateLimiting();
+// TLS ends at the tunnel, which forwards plain HTTP. Honour its X-Forwarded-Proto so the OpenAPI
+// document advertises https. The tunnel's address inside the Compose network is not fixed, and the
+// API is reachable only from that network and the host's loopback, so the header is accepted from any peer.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = context =>
     context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -32,6 +42,7 @@ builder.Services.AddHealthChecks().AddDbContextCheck<RatesDbContext>("postgres",
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseRateLimiter();
